@@ -2136,13 +2136,20 @@ class VaultWorker:
             nonce = self.web3.eth.get_transaction_count(self.executor_address)
             gas_price = self.web3.to_wei(self.gas_price_gwei, 'gwei')
             
+            # Check if this is a Felix pool and use higher gas limit
+            is_felix_pool = self.is_felix_pool(pool_address)
+            gas_limit = 500000 if is_felix_pool else 300000
+            
+            if is_felix_pool:
+                logger.info(f"⚠️ Target is Felix pool (ERC4626). Using higher gas limit: {gas_limit}")
+            
             # Prepare the depositToPool transaction
             tx = ai_agent_contract.functions.depositToPool(
                 self.web3.to_checksum_address(pool_address),
                 amount
             ).build_transaction({
                 'from': self.executor_address,
-                'gas': 300000,  # Set a specific gas limit to avoid insufficient funds
+                'gas': gas_limit,  # Higher gas limit for Felix pools
                 'gasPrice': gas_price,
                 'nonce': nonce,
             })
