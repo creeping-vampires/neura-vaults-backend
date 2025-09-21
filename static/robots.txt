@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+Allow: /api/docs/
+Allow: /api/redoc/
+Allow: /api/documentation/
+Allow: /api/health/
+Allow: /api/vault/price/
+Allow: /api/vault/price-chart/
+Allow: /api/yield-monitor/status/
+
+# Disallow admin and sensitive endpoints
+Disallow: /admin/
+Disallow: /api/schema/
+
+# Sitemap location (if implemented in the future)
+# Sitemap: https://neura-vault-backend-production.up.railway.app/sitemap.xml

@@ -94,6 +94,9 @@ DEBUG = os.getenv('DJANGO_DEBUG', 'True') == 'True'
 # Environment setting (development, staging, production)
 ENVIRONMENT = os.getenv('ENVIRONMENT', 'development')
 
+# Application version
+VERSION = os.getenv('VERSION', '0.1.0')
+
 # Maximum number of agents that can run concurrently
 MAX_CONCURRENT_AGENTS = int(os.getenv('MAX_CONCURRENT_AGENTS', '5'))
 
@@ -234,8 +237,13 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/4.2/howto/static-files/
 
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# Ensure Swagger UI and ReDoc can find static files
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
@@ -279,8 +287,8 @@ REST_FRAMEWORK = {
 
 # Spectacular settings
 SPECTACULAR_SETTINGS = {
-    'TITLE': 'Yield Allocator Backend',
-    'DESCRIPTION': 'API for Yield Allocator platform',
+    'TITLE': 'Nura Vault Backend',
+    'DESCRIPTION': 'API for Nura Vault platform',
     'VERSION': '1.0.0',
     'SERVE_INCLUDE_SCHEMA': False,
     'SWAGGER_UI_SETTINGS': {

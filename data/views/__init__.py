@@ -8,6 +8,10 @@ from .agent_thoughts_views import get_latest_agent_thoughts
 from .utils import log_error
 from .vault_views import VaultDepositViewSet, VaultWithdrawalViewSet
 from .vault_rebalance_views import VaultRebalanceViewSet
+from .error_views import handler404
+from .index_view import index_view
+from .docs_view import api_docs_redirect, api_docs_index
+from .redirect_views import api_root_redirect
 
 __all__ = [
     # ViewSets
@@ -37,5 +41,14 @@ __all__ = [
     'PrivyAuthenticationScheme',
     
     # Utils
-    'log_error'
+    'log_error',
+    
+    # Error handlers
+    'handler404',
+    
+    # Documentation views
+    'index_view',
+    'api_docs_redirect',
+    'api_docs_index',
+    'api_root_redirect'
 ]

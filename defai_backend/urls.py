@@ -19,6 +19,9 @@ from django.contrib import admin
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from data.views import AgentViewSet, UserViewSet, WithdrawalViewSet, CreditRequestViewSet, health_check, update_agent_balances, global_dashboard, get_active_agent_ids, admin_deactivate_agents, admin_view_credit_requests, admin_approve_credit_request, get_agent_pnl_graph_data, get_latest_agent_thoughts, VaultRebalanceViewSet
+from data.views.docs_view import api_docs_redirect, api_docs_index
+from data.views.index_view import index_view
+from data.views.redirect_views import api_root_redirect
 from data.views.role_views import UserRoleViewSet, InviteCodeViewSet
 from data.views.optimization_views import get_recent_pool_apy_results
 from data.views.yield_monitor_views import get_yield_monitor_status, get_yield_monitor_history, get_pool_performance, get_daily_metrics, get_latest_vault_price, get_vault_price_chart_data
@@ -41,7 +44,9 @@ router.register(r'vault/withdrawals', VaultWithdrawalViewSet, basename='vault-wi
 router.register(r'vault/rebalances', VaultRebalanceViewSet, basename='vault-rebalance')
 
 urlpatterns = [
+    path('', index_view, name='index'),
     path('admin/', admin.site.urls),
+    path('api/', api_root_redirect, name='api-root-redirect'),  # Redirect /api/ to /api/docs/
     path('api/', include(router.urls)),
     path('api/health/', health_check, name='health_check'),
     path('api/pool-apy/', get_recent_pool_apy_results, name='get_recent_pool_apy_results'),
@@ -68,8 +73,13 @@ urlpatterns = [
     path('api/schema/', SpectacularAPIView.as_view(), name='schema'),
     path('api/docs/', SpectacularSwaggerView.as_view(url_name='schema'), name='swagger-ui'),
     path('api/redoc/', SpectacularRedocView.as_view(url_name='schema'), name='redoc'),
+    path('api/docs', api_docs_redirect, name='api-docs-redirect'),  # Handle missing trailing slash
+    path('api/documentation/', api_docs_index, name='api-docs-index'),
 ]
 
 # Serve media files during development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+
+# Configure custom error handlers
+handler404 = 'data.views.error_views.handler404'

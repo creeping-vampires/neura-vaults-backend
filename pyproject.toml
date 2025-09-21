@@ -1,8 +1,11 @@
 [project]
-name = "defai-backend"
+name = "neura-vault-backend"
 version = "0.1.0"
-description = "Add your description here"
+description = "A robust Django-based backend service for DeFi yield optimization and allocation"
 readme = "README.md"
+authors = [
+    {name = "Nura Vault Team"}
+]
 requires-python = ">=3.11"
 dependencies = [
     "black>=25.1.0",

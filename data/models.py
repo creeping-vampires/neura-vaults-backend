@@ -939,7 +939,7 @@ class YieldReport(models.Model):
 
 class PoolAPR(models.Model):
     """
-    Model to store APR/APY data for yield allocator vault pools.
+    Model to store APR/APY data for Nura Vault pools.
     Tracks historical APR/APY calculations for different pools.
     """
     # Pool identification

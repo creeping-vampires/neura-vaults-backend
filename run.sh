@@ -6,7 +6,7 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${GREEN}Starting Yield Allocator Backend Production Server...${NC}"
+echo -e "${GREEN}Starting Nura Vault Backend Production Server...${NC}"
 
 # Check if we're in a Docker environment (this file exists in Docker containers)
 if [ -f "/.dockerenv" ]; then
@@ -38,9 +38,13 @@ echo -e "${GREEN}Creating logs directory if it doesn't exist...${NC}"
 mkdir -p /app/logs
 
 
-# Run latest  migrations on prod
+# Run database migrations
 echo -e "${GREEN}Running database migrations...${NC}"
 python manage.py migrate
+
+# Collect static files for API documentation
+echo -e "${GREEN}Collecting static files...${NC}"
+python manage.py collectstatic --noinput
 
 # Function to handle shutdown
 cleanup() {
