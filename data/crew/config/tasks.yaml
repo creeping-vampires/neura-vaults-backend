@@ -1,0 +1,199 @@
+# Yield Allocation Tasks
+pool_analyzer_task:
+  description: >
+    {message}
+
+    INPUTS (from cron/context):
+      - pools: [{ protocol, pool_id, symbol, apy_decimal, liquidity_available,
+                  supply_cap_headroom, reserve_factor_decimal, utilization_decimal,
+                  rate_format: "APY", last_updated }]
+      - positions: [{ protocol, pool_id, asset_symbol, deposited, usd_value }]
+      - wallet_balances: { asset_symbol -> amount }
+
+    RULES (SMALL mode):
+      - Use provided **apy_decimal** as the effective rate. **Do not** transform or recompute.
+      - Consider only policy.whitelist_protocols.
+      - Target must have liquidity/cap headroom to accept **all** funds for that asset.
+      - If (target_apy - blended_apy) < min_gain_bps → NO_MOVE; else MOVE_ALL.
+
+  expected_output: >
+    Return a JSON object in the following format:
+
+    {
+      "asset_symbol": "USDC",
+      "current_summary": {
+        "blended_apy": 0.0621,
+        "positions": [
+          {"protocol":"hyperlend","pool_id":"USDC-1","amount":"25000"}
+        ],
+        "free_balance":"0"
+      },
+      "target_decision": "MOVE_ALL",
+      "target_pool": {
+        "protocol":"hypurrfi",
+        "pool_id":"USDC-core",
+        "apy_decimal":0.0779
+      },
+      "expected_gain_bps": 158,
+      "constraints_check": {
+        "whitelisted": true,
+        "liquidity_ok": true,
+        "cap_headroom_ok": true
+      },
+      "analysis_timestamp": "ISOString"
+    }
+
+yield_qa_task:
+  description: >
+    {message}
+
+    CRITICAL: You must perform INDEPENDENT ANALYSIS. DO NOT copy the Pool Analyzer's output.
+    
+    STEP 1 - READ VAULT STATUS DIRECTLY:
+    From the " CURRENT ALLOCATIONS:" section, extract the ACTUAL current pool addresses and amounts.
+    IGNORE the Pool Analyzer's "current_summary" - it may be incorrect.
+    
+    STEP 2 - CHECK FOR IDLE ASSETS FIRST:
+    1. Check if there are idle assets available (free_balance > 0)
+    2. If idle assets exist AND Pool Analyzer recommends "DEPLOY_IDLE":
+       - ALWAYS APPROVE the deployment regardless of target pool
+       - Set qa_result: "APPROVE"
+       - Reason: "Idle assets should be deployed to earn yield"
+    
+    STEP 3 - SAME-POOL CHECK (ONLY FOR MOVE_ALL):
+    1. Extract ACTUAL current pool addresses from " CURRENT ALLOCATIONS:" section
+    2. Extract target pool address from Pool Analyzer recommendation
+    3. If Pool Analyzer recommends "MOVE_ALL" AND ACTUAL current pool address == target pool address:
+       - IMMEDIATELY recommend "NO_MOVE"
+       - Set qa_result: "REJECT"
+       - Reason: "Assets already optimally allocated - same pool detected"
+    
+    EXAMPLE FROM VAULT STATUS:
+    " CURRENT ALLOCATIONS:
+     • 0xceCcE0EB9DD2Ef7996e01e25DD70e461F918A14b: 0.6752 USDe (99.98%)"
+    
+    If Pool Analyzer recommends target: 0xceCcE0EB9DD2Ef7996e01e25DD70e461F918A14b
+    Then: SAME POOL DETECTED → REJECT with "NO_MOVE" (ONLY for MOVE_ALL)
+    
+    STEP 4 - DECISION LOGIC (only if pools are different):
+    1. If current position is already in the highest yield pool AND no idle assets exist:
+       - Recommend "NO_MOVE" 
+       - Set qa_result: "REJECT" with reason "Already optimally allocated"
+    
+    2. If idle assets exist but current positions are optimal:
+       - Recommend "IDLE_DEPLOYMENT" to deploy only idle assets
+    
+    3. If current positions are suboptimal (lower yield pools):
+       - Recommend "MOVE_ALL" for rebalancing
+    
+    VALIDATION CHECKS:
+      - Target protocol is whitelisted.
+      - **rate_format == "APY"** and apy_decimal freshness OK (timestamp window).
+      - Liquidity/cap headroom can accept full MOVE_ALL size.
+      - Delta vs blended_apy ≥ policy.min_gain_bps.
+      - Asset_symbol consistent.
+      - For MOVE_ALL only: ACTUAL current pool address != Target pool address (REJECT if same)
+      
+    CRITICAL RULE: Always read current allocations from " CURRENT ALLOCATIONS:" section, NOT from Pool Analyzer's assessment.
+
+  expected_output: >
+    FOR SAME-POOL DETECTION (NO_MOVE scenario):
+    {
+      "qa_result": "REJECT",
+      "rejection_reason": "Assets already optimally allocated - same pool detected",
+      "verified_metrics": {
+        "actual_current_pool": "0xceCcE0EB9DD2Ef7996e01e25DD70e461F918A14b",
+        "target_pool": "0xceCcE0EB9DD2Ef7996e01e25DD70e461F918A14b",
+        "same_pool_detected": true,
+        "current_blended_apy": 0.2354,
+        "target_apy": 0.2354,
+        "delta_bps": 0
+      },
+      "policy_checks": {
+        "whitelist": true,
+        "already_optimal": true,
+        "same_pool_detected": true
+      },
+      "command_for_executor": {
+        "action": "NO_MOVE",
+        "reason": "Current allocation is already optimal - no rebalancing needed"
+      },
+      "qa_timestamp": "ISOString"
+    }
+
+    FOR REBALANCING (MOVE_ALL scenario - only when pools are different):
+    {
+      "qa_result": "APPROVE",
+      "verified_metrics": {
+        "current_blended_apy": 0.0621,
+        "target_apy": 0.0779,
+        "delta_bps": 158
+      },
+      "policy_checks": {
+        "whitelist": true,
+        "min_gain_bps_pass": true,
+        "liquidity_ok": true,
+        "cap_headroom_ok": true,
+        "fresh_data": true
+      },
+      "command_for_executor": {
+        "action": "MOVE_ALL",
+        "asset_symbol": "USDC",
+        "source_positions": [
+          {"protocol":"hyperlend","pool_id":"USDC-1","withdraw":"ALL"}
+        ],
+        "destination": {"protocol":"hypurrfi","pool_id":"USDC-core","deposit":"ALL"},
+        "notes": "Use provided APY; no recompute."
+      },
+      "qa_timestamp": "ISOString"
+    }
+
+yield_executor_task:
+  description: >
+    {message}
+
+    EXECUTION LOGIC:
+    - First determine scenario type from QA-approved strategy:
+      * IDLE_DEPLOYMENT: Only free_balance > 0, no existing positions to move
+      * REBALANCING: Existing positions need to be withdrawn and redeployed
+    - Execute ONLY if QA_result == APPROVE
+    - For IDLE_DEPLOYMENT: Only deposit idle assets to target pool
+    - For REBALANCING: Withdraw from current positions, then deposit to target
+    - Report ONLY actual transactions executed, not theoretical operations
+    - Respect whitelist, liquidity, and caps; provide real tx hashes and final positions
+
+  expected_output: >
+    Return a JSON object with accurate transaction reporting based on scenario:
+
+    FOR IDLE_DEPLOYMENT (only idle assets to deploy):
+    {
+      "execution_summary": {
+        "planned_actions": 1, "completed": 1, "failed": 0,
+        "asset_symbol": "USDC", "moved_amount": "1000",
+        "execution_timestamp": "ISOString"
+      },
+      "transactions": [
+        {"type": "DEPOSIT", "protocol": "hypurrfi", "pool_id": "USDC-core", "amount": "1000", "tx_hash": "0x...", "status": "SUCCESS"}
+      ],
+      "final_positions": [
+        {"protocol": "hypurrfi", "pool_id": "USDC-core", "amount": "1000", "current_apy": 0.0779}
+      ],
+      "remaining_free_balance": "0"
+    }
+
+    FOR REBALANCING (moving between pools):
+    {
+      "execution_summary": {
+        "planned_actions": 2, "completed": 2, "failed": 0,
+        "asset_symbol": "USDC", "moved_amount": "25000",
+        "execution_timestamp": "ISOString"
+      },
+      "transactions": [
+        {"type": "WITHDRAW", "protocol": "hyperlend", "pool_id": "USDC-1", "amount": "ALL", "tx_hash": "0x...", "status": "SUCCESS"},
+        {"type": "DEPOSIT", "protocol": "hypurrfi", "pool_id": "USDC-core", "amount": "ALL", "tx_hash": "0x...", "status": "SUCCESS"}
+      ],
+      "final_positions": [
+        {"protocol": "hypurrfi", "pool_id": "USDC-core", "amount": "25000", "current_apy": 0.0779}
+      ],
+      "remaining_free_balance": "0"
+    }
