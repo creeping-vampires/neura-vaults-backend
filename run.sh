@@ -46,6 +46,10 @@ python manage.py migrate
 echo -e "${GREEN}Collecting static files...${NC}"
 python manage.py collectstatic --noinput
 
+# Install missing dependencies
+echo -e "${GREEN}Installing missing dependencies...${NC}"
+pip install --no-cache-dir langchain-openai>=0.1.0
+
 # Function to handle shutdown
 cleanup() {
     echo -e "${YELLOW}Shutting down all services...${NC}"

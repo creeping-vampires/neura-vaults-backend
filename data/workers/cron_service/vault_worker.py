@@ -8,6 +8,7 @@ import sys
 import time
 import logging
 import json
+import traceback
 from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Any
@@ -232,69 +233,88 @@ class VaultWorker:
     
     def get_latest_pool_apys(self, underlying_token_symbol: str):
         """
-        Get the best APY for a given token from HyperLend and HypurrFi
+        Get the latest yield reports for a given token from HyperLend, HypurrFi, and Felix
+        
+        Returns:
+            Tuple of (latest_hyperlend, latest_hypurrfi, latest_felix) where each item
+            is either a YieldReport object or None if no reports were found
         """
         from data.models import YieldReport
         
-        hyperlend_reports = YieldReport.objects.filter(
-            token__icontains=underlying_token_symbol,
-            protocol__icontains='HyperLend'
-        ).order_by('-created_at')
-        hypurrfi_reports = YieldReport.objects.filter(
-            token__icontains=underlying_token_symbol,
-            protocol__icontains='HypurrFi'
-        ).order_by('-created_at')
-        felix_reports = YieldReport.objects.filter(
-            token__icontains=underlying_token_symbol,
-            protocol__icontains='Felix'
-        ).order_by('-created_at')
+        # Initialize variables to None to avoid UnboundLocalError
+        latest_hyperlend = None
+        latest_hypurrfi = None
+        latest_felix = None
         
         # Initialize variables to track highest APY and its protocol
         highest_apy = Decimal('0')
         highest_apy_protocol = None
         highest_apy_pool_address = None
         
-        # Check HyperLend APY
-        if hyperlend_reports.exists():
-            latest_hyperlend = hyperlend_reports.first()
-            # logger.info(f"Latest HyperLend APY: {latest_hyperlend.apy}%")
-            if latest_hyperlend.apy > highest_apy:
-                highest_apy = latest_hyperlend.apy
-                highest_apy_protocol = latest_hyperlend.protocol
-                highest_apy_pool_address = latest_hyperlend.pool_address
-        else:
-            logger.warning("No HyperLend yield reports found")
+        try:
+            # Query HyperLend reports
+            hyperlend_reports = YieldReport.objects.filter(
+                token__icontains=underlying_token_symbol,
+                protocol__icontains='HyperLend'
+            ).order_by('-created_at')
             
-        # Check HypurrFi APY
-        if hypurrfi_reports.exists():
-            latest_hypurrfi = hypurrfi_reports.first()
-            # logger.info(f"Latest HypurrFi APY: {latest_hypurrfi.apy}%")
-            if latest_hypurrfi.apy > highest_apy:
-                highest_apy = latest_hypurrfi.apy
-                highest_apy_protocol = latest_hypurrfi.protocol
-                highest_apy_pool_address = latest_hypurrfi.pool_address
-        else:
-            logger.warning("No HypurrFi yield reports found")
+            # Check HyperLend APY
+            if hyperlend_reports.exists():
+                latest_hyperlend = hyperlend_reports.first()
+                if latest_hyperlend.apy > highest_apy:
+                    highest_apy = latest_hyperlend.apy
+                    highest_apy_protocol = latest_hyperlend.protocol
+                    highest_apy_pool_address = latest_hyperlend.pool_address
+            else:
+                logger.warning("No HyperLend yield reports found")
+        except Exception as e:
+            logger.error(f"Error retrieving HyperLend yield reports: {str(e)}")
             
-        # Check Felix APY
-        if felix_reports.exists():
-            latest_felix = felix_reports.first()
-            # logger.info(f"Latest Felix APY: {latest_felix.apy}%")
-            if latest_felix.apy > highest_apy:
-                highest_apy = latest_felix.apy
-                highest_apy_protocol = latest_felix.protocol
-                highest_apy_pool_address = latest_felix.pool_address
-        else:
-            logger.warning("No Felix yield reports found")
+        try:
+            # Query HypurrFi reports
+            hypurrfi_reports = YieldReport.objects.filter(
+                token__icontains=underlying_token_symbol,
+                protocol__icontains='HypurrFi'
+            ).order_by('-created_at')
             
-        # Log the highest APY found
-        # if highest_apy_protocol:
-        #     logger.info(f"Highest APY: {highest_apy_protocol} with {highest_apy}%")
-        #     return highest_apy, highest_apy_protocol, highest_apy_pool_address
-        # else:
-        #     logger.warning("No yield reports found for HyperLend or HypurrFi or Felix")
-        #     return Decimal('0'), None, None
-        return latest_hyperlend, latest_hypurrfi, latest_felix 
+            # Check HypurrFi APY
+            if hypurrfi_reports.exists():
+                latest_hypurrfi = hypurrfi_reports.first()
+                if latest_hypurrfi.apy > highest_apy:
+                    highest_apy = latest_hypurrfi.apy
+                    highest_apy_protocol = latest_hypurrfi.protocol
+                    highest_apy_pool_address = latest_hypurrfi.pool_address
+            else:
+                logger.warning("No HypurrFi yield reports found")
+        except Exception as e:
+            logger.error(f"Error retrieving HypurrFi yield reports: {str(e)}")
+            
+        try:
+            # Query Felix reports
+            felix_reports = YieldReport.objects.filter(
+                token__icontains=underlying_token_symbol,
+                protocol__icontains='Felix'
+            ).order_by('-created_at')
+            
+            # Check Felix APY
+            if felix_reports.exists():
+                latest_felix = felix_reports.first()
+                if latest_felix.apy > highest_apy:
+                    highest_apy = latest_felix.apy
+                    highest_apy_protocol = latest_felix.protocol
+                    highest_apy_pool_address = latest_felix.pool_address
+            else:
+                logger.warning("No Felix yield reports found")
+        except Exception as e:
+            logger.error(f"Error retrieving Felix yield reports: {str(e)}")
+        
+        # Log the highest APY found if any
+        if highest_apy_protocol:
+            logger.info(f"Highest APY: {highest_apy_protocol} with {highest_apy}%")
+        else:
+            logger.warning("No yield reports found for any protocol")
+            
+        return latest_hyperlend, latest_hypurrfi, latest_felix
         
     def prepare_optimizer_data(self, latest_hyperlend, latest_hypurrfi, latest_felix, pool_allocations):
         """
@@ -1919,6 +1939,11 @@ class VaultWorker:
             # Get pool data from API
             latest_hyperlend, latest_hypurrfi, latest_felix = self.get_latest_pool_apys(self.underlying_token_symbol)
             
+            # Check if we have any yield reports
+            if not latest_hyperlend and not latest_hypurrfi and not latest_felix:
+                logger.error("No yield reports found for any protocol. Cannot proceed with optimization.")
+                return None
+                
             # Build cron_struct for optimizer
             cron_struct = {}
             

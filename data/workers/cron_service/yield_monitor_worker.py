@@ -1047,10 +1047,16 @@ class YieldMonitorWorker:
 
             # query vault price nearby today_midnight_utc
             midnight_vault_price = VaultPrice.objects.filter(vault_address=vault_address, created_at__lte=today_midnight_utc).order_by('-created_at').first()
+            if not midnight_vault_price:
+                logger.error(f"No vault price found for {vault_address} before {today_midnight_utc}")
+                return False
             midnight_share_price = midnight_vault_price.share_price_formatted
 
             # query current vault price
             current_vault_price = VaultPrice.objects.filter(vault_address=vault_address).order_by('-created_at').first()
+            if not current_vault_price:
+                logger.error(f"No current vault price found for {vault_address}")
+                return False
             current_share_price = current_vault_price.share_price_formatted
             token = current_vault_price.token
 
