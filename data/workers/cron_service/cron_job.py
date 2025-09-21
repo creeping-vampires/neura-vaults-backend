@@ -1317,7 +1317,7 @@ def generate_yield_alerts(hyperlend_data: dict, hypurrfi_data: dict, felix_data:
                 f"📈 Expected Growth\n"
                 f"└ From: {second_protocol_data['apy']:.2f}%\n"
                 f"└ To:   {top_protocol_data['apy']:.2f}%\n\n"
-                f"To capture this opportunity, Sentient Pool recommends re-deploying funds for a +{diff:.2f}% higher yield."
+                f"To capture this opportunity, Neura Vault recommends re-deploying funds for a +{diff:.2f}% higher yield."
             )
             alerts.append(alert_string)
 
@@ -1889,49 +1889,46 @@ Hypurfi USDe- 12.50% apr. USDe supplied/tvl- $2,310,000, utilisation rate= 82.19
         data_provider_contract,
         token_map
     )
-    
     sanitized_token_map = {k.replace('₮', 'T'): v for k, v in token_map.items()}
     # Always save yield reports regardless of APY differences
     should_save = True
     for token in sanitized_token_map.keys():
         best_apy, protocol = yield_monitor.get_best_apy(token)
+        current_apy = 0
+        current_protocol = None
+        for protocol_name, protocol_data in all_yields_data.items():
+            if token in protocol_data and 'apy' in protocol_data[token]:
+                if protocol_data[token]['apy'] > current_apy:
+                    current_apy = protocol_data[token]['apy']
+                    current_protocol = protocol_name
         if best_apy > 0:
-            # Get current APY from our data for this token
-            current_apy = 0
-            current_protocol = None
-            
-            # Find the highest APY among current protocols for this token
-            for protocol_name, protocol_data in all_yields_data.items():
-                if token in protocol_data and 'apy' in protocol_data[token]:
-                    if protocol_data[token]['apy'] > current_apy:
-                        current_apy = protocol_data[token]['apy']
-                        current_protocol = protocol_name
-            
             if current_apy > 0:  # If we found current APY data
                 apy_difference = abs(float(current_apy) - float(best_apy))
                 
-                if apy_difference > 0.2:  
+                if apy_difference >= 0.2:  
                     print(f"⚠️  Significant APY difference found for {token}: {apy_difference:.2f}% (current: {current_apy:.2f}% in {current_protocol} vs best: {best_apy:.2f}% in {protocol})")
                     should_save = True  # We want to save when there's a significant difference
                 else:
                     should_save = True
                     print(f"✅ APY difference for {token} is within normal range: {apy_difference:.2f}% (current: {current_apy:.2f}% in {current_protocol} vs best: {best_apy:.2f}% in {protocol})")
-    
+        elif current_apy > 0:
+            print(f"ℹ️ No previous data found for {token}. Saving latest APY: {current_apy:.2f}% from {current_protocol}.")
+            should_save = True
     if should_save:
         print("\n💾 Saving yield reports to database due to significant APY differences...")
         save_yield_reports(all_yields_data, sanitized_token_map, pool_address_map, on_chain_params)
         
         # Get the list of individual alert messages
-        alert_messages = generate_yield_alerts(yields_hyperlend, yields_hypurrfi, yields_felix)
-        user_ids = asyncio.run(get_all_user_ids_from_api())
-        if alert_messages:
-            print(f"📢 Found {len(alert_messages)} yield opportunities. Broadcasting alerts individually...")
+        #alert_messages = generate_yield_alerts(yields_hyperlend, yields_hypurrfi, yields_felix)
+        #user_ids = asyncio.run(get_all_user_ids_from_api())
+        #if alert_messages:
+        #    print(f"📢 Found {len(alert_messages)} yield opportunities. Broadcasting alerts individually...")
             # Loop through each message and broadcast it separately
-            for alert in alert_messages:
-                asyncio.run(broadcast_messages(user_ids,alert))
-            print("✅ Successfully sent all alert messages.")
-        else:
-            print("ℹ️ No specific alerts were generated based on comparison logic.")
+        #    for alert in alert_messages:
+        #        asyncio.run(broadcast_messages(user_ids,alert))
+        #    print("✅ Successfully sent all alert messages.")
+        #else:
+        #    print("ℹ️ No specific alerts were generated based on comparison logic.")
     
     else:
         # This should never happen now, but keeping as a fallback
