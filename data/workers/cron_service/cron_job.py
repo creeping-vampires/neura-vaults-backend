@@ -1317,7 +1317,7 @@ def generate_yield_alerts(hyperlend_data: dict, hypurrfi_data: dict, felix_data:
                 f"📈 Expected Growth\n"
                 f"└ From: {second_protocol_data['apy']:.2f}%\n"
                 f"└ To:   {top_protocol_data['apy']:.2f}%\n\n"
-                f"To capture this opportunity, Sentient Pool recommends re-deploying funds for a +{diff:.2f}% higher yield."
+                f"To capture this opportunity, Neura Vault recommends re-deploying funds for a +{diff:.2f}% higher yield."
             )
             alerts.append(alert_string)
 
@@ -1917,16 +1917,16 @@ Hypurfi USDe- 12.50% apr. USDe supplied/tvl- $2,310,000, utilisation rate= 82.19
         save_yield_reports(all_yields_data, sanitized_token_map, pool_address_map, on_chain_params)
         
         # Get the list of individual alert messages
-        alert_messages = generate_yield_alerts(yields_hyperlend, yields_hypurrfi, yields_felix)
-        user_ids = asyncio.run(get_all_user_ids_from_api())
-        if alert_messages:
-            print(f"📢 Found {len(alert_messages)} yield opportunities. Broadcasting alerts individually...")
+        #alert_messages = generate_yield_alerts(yields_hyperlend, yields_hypurrfi, yields_felix)
+        #user_ids = asyncio.run(get_all_user_ids_from_api())
+        #if alert_messages:
+        #    print(f"📢 Found {len(alert_messages)} yield opportunities. Broadcasting alerts individually...")
             # Loop through each message and broadcast it separately
-            for alert in alert_messages:
-                asyncio.run(broadcast_messages(user_ids,alert))
-            print("✅ Successfully sent all alert messages.")
-        else:
-            print("ℹ️ No specific alerts were generated based on comparison logic.")
+        #    for alert in alert_messages:
+        #        asyncio.run(broadcast_messages(user_ids,alert))
+        #    print("✅ Successfully sent all alert messages.")
+        #else:
+        #    print("ℹ️ No specific alerts were generated based on comparison logic.")
     
     else:
         print("\nℹ️  No significant APY differences found, not saving reports.")
