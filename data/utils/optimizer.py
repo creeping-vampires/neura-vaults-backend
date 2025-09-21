@@ -344,8 +344,8 @@ def calculate_new_utilization(current_tvl: float, current_borrow: float, tvl_cha
 
 def find_most_profitable_reallocation(pool_data: Dict, position: Dict) -> Dict:
     """
-    Checks every possible reallocation from a pool with a balance to a pool with a higher
-    current APY, and recommends the single move that results in the highest destination APY.
+    Checks every possible reallocation from a pool with a balance to the highest APY pool,
+    and recommends the single move that results in the highest destination APY.
     """
     # if not any(balance > 0 for balance in position.values()):
     #     return {"action": "hold", "reason": "No funds to optimize."}
@@ -368,38 +368,41 @@ def find_most_profitable_reallocation(pool_data: Dict, position: Dict) -> Dict:
 
     best_move = {"action": "hold", "reason": "No profitable move found.", "new_apy_to": -1, "current_best_pool": current_best_pool_name, "current_best_pool_address": current_best_pool_address}
 
-    # Iterate through each pool that has funds as a potential source
+    # For each pool with funds, consider moving to the highest APY pool (current_best_pool)
     for from_addr, from_pool in pool_data.items():
         if not isinstance(from_pool, CronPoolData) or position.get(from_addr, 0) <= 0:
             continue
 
-        # Iterate through all other pools as a potential destination
-        for to_addr, to_pool in pool_data.items():
-            if from_addr == to_addr or not isinstance(to_pool, CronPoolData):
-                continue
+        # Skip if this is already the best pool
+        if from_addr == current_best_pool_address:
+            continue
 
-            # Only consider moves to pools with a higher current APY
-            if to_pool.current_apy > from_pool.current_apy:
-                amount_to_move = position[from_addr]
+        # Always move to the highest APY pool (current_best_pool)
+        to_addr = current_best_pool_address
+        to_pool = current_best_pool
 
-                # Calculate the new APY of the destination pool
-                new_apy_to = estimate_supply_apy_for_util(to_pool, tvl_change=amount_to_move)
+        # Only proceed if the destination pool has a higher APY
+        if to_pool.current_apy > from_pool.current_apy:
+            amount_to_move = position[from_addr]
 
-                # If this move results in a higher destination APY than any move found so far, it's the new best move
-                if new_apy_to > best_move["new_apy_to"]:
-                    best_move = {
-                        "action": "reallocate",
-                        "from_protocol": from_pool,
-                        "from_address": from_addr,
-                        "to_protocol": to_pool,
-                        "to_address": to_addr,
-                        "amount": amount_to_move,
-                        "reason": f"Moving funds from {from_pool.protocol} to {to_pool.protocol} offers the highest resulting APY.",
-                        "current_apy_from": from_pool.current_apy * 100,
-                        "new_apy_to": new_apy_to * 100,
-                        "current_best_pool": current_best_pool_name,
-                        "current_best_pool_address": current_best_pool_address
-                    }
+            # Calculate the new APY of the destination pool
+            new_apy_to = estimate_supply_apy_for_util(to_pool, tvl_change=amount_to_move)
+
+            # If this move results in a higher destination APY than any move found so far, it's the new best move
+            if new_apy_to > best_move["new_apy_to"]:
+                best_move = {
+                    "action": "reallocate",
+                    "from_protocol": from_pool,
+                    "from_address": from_addr,
+                    "to_protocol": to_pool,
+                    "to_address": to_addr,
+                    "amount": amount_to_move,
+                    "reason": f"Moving funds from {from_pool.protocol} to {to_pool.protocol} (highest APY pool) offers the best yield.",
+                    "current_apy_from": from_pool.current_apy * 100,
+                    "new_apy_to": new_apy_to * 100,
+                    "current_best_pool": current_best_pool_name,
+                    "current_best_pool_address": current_best_pool_address
+                }
 
     return best_move
 
