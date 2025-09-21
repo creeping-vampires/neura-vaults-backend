@@ -1915,7 +1915,7 @@ class VaultWorker:
         
         Applies the following thresholds:
         - Pool allocations less than $0.01 are considered as zero
-        - Rebalance transactions less than $5 are skipped
+        - Rebalance transactions less than $1 are skipped
         """
         logger.info("=" * 60)
         logger.info("Running optimizer to determine if rebalancing is needed")
@@ -1923,7 +1923,7 @@ class VaultWorker:
         
         # Define minimum thresholds
         MIN_POOL_ALLOCATION_USD = 0.01  # $0.01 minimum pool allocation
-        MIN_REBALANCE_AMOUNT_USD = 5.0  # $5 minimum rebalance amount
+        MIN_REBALANCE_AMOUNT_USD = 1.0  # $1 minimum rebalance amount
         
         try:
             # Get protocol info including pool balances
