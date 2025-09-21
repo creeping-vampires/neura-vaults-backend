@@ -48,7 +48,7 @@ python manage.py collectstatic --noinput
 
 # Install missing dependencies
 echo -e "${GREEN}Installing missing dependencies...${NC}"
-pip install --no-cache-dir langchain-openai>=0.1.0
+pip install --no-cache-dir langchain>=0.1.0 langchain-openai>=0.1.0
 
 # Function to handle shutdown
 cleanup() {
