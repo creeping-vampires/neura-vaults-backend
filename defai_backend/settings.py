@@ -410,7 +410,8 @@ ALLOWED_HOSTS = [
     '0.0.0.0',
     'api.hedgewater.xyz',
     'agent.hedgewater.xyz',
-    'yield-allocator-backend-production.up.railway.app'
+    'yield-allocator-backend-production.up.railway.app',
+    'neura-vault-backend-production.up.railway.app'
 ]
 
 
