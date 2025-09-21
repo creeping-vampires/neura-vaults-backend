@@ -1,0 +1,90 @@
+services:
+  db:
+    image: postgres:14
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+    ports:
+      - "5432:5432"
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    command: ./run.sh
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+    restart: always
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+    depends_on:
+      db:
+        condition: service_healthy
+
+  apy-monitor:
+    build: .
+    command: ./scripts/run-apy-monitor-worker.sh
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+    depends_on:
+      - web
+      - db
+    restart: always
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+  yield-monitor:
+    build: .
+    command: ./scripts/run-yield-monitor-worker.sh
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+    depends_on:
+      - web
+      - db
+    restart: always
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+  simple-agent-worker:
+    build: .
+    command: ./scripts/run-simple-agent-worker.sh
+    volumes:
+      - .:/app
+    env_file:
+      - .env
+    environment:
+      - DB_HOST=db
+    depends_on:
+      - web
+      - db
+    restart: always
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+volumes:
+  postgres_data:
