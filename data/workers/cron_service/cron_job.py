@@ -1891,7 +1891,8 @@ Hypurfi USDe- 12.50% apr. USDe supplied/tvl- $2,310,000, utilisation rate= 82.19
     )
     
     sanitized_token_map = {k.replace('₮', 'T'): v for k, v in token_map.items()}
-    should_save = False
+    # Always save yield reports regardless of APY differences
+    should_save = True
     for token in sanitized_token_map.keys():
         best_apy, protocol = yield_monitor.get_best_apy(token)
         if best_apy > 0:
@@ -1913,6 +1914,7 @@ Hypurfi USDe- 12.50% apr. USDe supplied/tvl- $2,310,000, utilisation rate= 82.19
                     print(f"⚠️  Significant APY difference found for {token}: {apy_difference:.2f}% (current: {current_apy:.2f}% in {current_protocol} vs best: {best_apy:.2f}% in {protocol})")
                     should_save = True  # We want to save when there's a significant difference
                 else:
+                    should_save = True
                     print(f"✅ APY difference for {token} is within normal range: {apy_difference:.2f}% (current: {current_apy:.2f}% in {current_protocol} vs best: {best_apy:.2f}% in {protocol})")
     
     if should_save:
@@ -1932,5 +1934,7 @@ Hypurfi USDe- 12.50% apr. USDe supplied/tvl- $2,310,000, utilisation rate= 82.19
             print("ℹ️ No specific alerts were generated based on comparison logic.")
     
     else:
-        print("\nℹ️  No significant APY differences found, not saving reports.")
+        # This should never happen now, but keeping as a fallback
+        print("\n⚠️  should_save flag is False, saving reports anyway...")
+        save_yield_reports(all_yields_data, sanitized_token_map, pool_address_map, on_chain_params)
     

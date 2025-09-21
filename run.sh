@@ -100,7 +100,7 @@ run_apy_monitor
 run_yield_monitor
 
 # Run the Vault worker job immediately at startup
-# run_vault_worker
+run_vault_worker
 
 
 # Start a background process to run the APY monitor job every hour
@@ -124,14 +124,14 @@ echo -e "${GREEN}APY monitor hourly job scheduler started in background${NC}"
 echo -e "${GREEN}Yield monitor hourly job scheduler started in background${NC}"
 
 # # # Start a background process to run the Vault worker job every 30 minutes
-# (
-#     while true; do
-#         # Sleep for 30 minutes (1800 seconds)
-#         sleep 1800
-#         run_vault_worker
-#     done
-# ) &
-# echo -e "${GREEN}Vault worker job scheduler (30-minute interval) started in background${NC}"
+(
+    while true; do
+        # Sleep for 30 minutes (1800 seconds)
+        sleep 1800
+        run_vault_worker
+    done
+) &
+echo -e "${GREEN}Vault worker job scheduler (30-minute interval) started in background${NC}"
 
 
 # Start Gunicorn in foreground (this keeps the container alive)
