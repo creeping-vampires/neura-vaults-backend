@@ -86,10 +86,10 @@ run_vault_worker() {
 }
 
 # Run the APY monitor job immediately at startup
-run_apy_monitor
+# run_apy_monitor
 
 # Run the Yield monitor job immediately at startup
-run_yield_monitor
+# run_yield_monitor
 
 # Run the Vault worker job immediately at startup
 # run_vault_worker
