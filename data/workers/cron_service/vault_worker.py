@@ -1828,11 +1828,11 @@ class VaultWorker:
         # Find failed rebalances with successful withdrawals but failed deposits
         from django.db.models import Q
         
-        # Get all rebalance IDs with failed status
+        # Get distinct rebalance IDs with failed deposit status
         failed_rebalances = VaultRebalance.objects.filter(
             Q(transaction_type=VaultRebalance.DEPOSIT) & 
             Q(status=VaultRebalance.FAILED)
-        ).values('rebalance_id')
+        ).values_list('rebalance_id', flat=True).distinct()
         
         if not failed_rebalances:
             logger.info("No failed rebalances found")
@@ -1840,23 +1840,33 @@ class VaultWorker:
             
         settled_count = 0
         
-        for failed_rebalance in failed_rebalances:
-            rebalance_id = failed_rebalance['rebalance_id']
-            
-            # Check if the withdrawal was successful for this rebalance
+        for rebalance_id in failed_rebalances:
             try:
-                withdrawal = VaultRebalance.objects.get(
+                # Get the first successful withdrawal for this rebalance
+                withdrawals = VaultRebalance.objects.filter(
                     rebalance_id=rebalance_id,
                     transaction_type=VaultRebalance.WITHDRAWAL,
                     status=VaultRebalance.COMPLETED
-                )
+                ).order_by('-created_at')
                 
-                # Get the failed deposit
-                failed_deposit = VaultRebalance.objects.get(
+                if not withdrawals.exists():
+                    logger.info(f"No successful withdrawal found for rebalance {rebalance_id}")
+                    continue
+                    
+                withdrawal = withdrawals.first()
+                
+                # Get the first failed deposit for this rebalance
+                failed_deposits = VaultRebalance.objects.filter(
                     rebalance_id=rebalance_id,
                     transaction_type=VaultRebalance.DEPOSIT,
                     status=VaultRebalance.FAILED
-                )
+                ).order_by('-created_at')
+                
+                if not failed_deposits.exists():
+                    logger.info(f"No failed deposit found for rebalance {rebalance_id}")
+                    continue
+                    
+                failed_deposit = failed_deposits.first()
                 
                 # Check if we have enough idle assets to settle this rebalance
                 amount = int(withdrawal.amount_token_raw)
@@ -1893,9 +1903,6 @@ class VaultWorker:
                 else:
                     logger.error(f"Failed to settle rebalance {rebalance_id}: {deposit_result.get('error')}")
                 
-            except VaultRebalance.DoesNotExist:
-                # Either withdrawal wasn't successful or deposit wasn't found
-                continue
             except Exception as e:
                 logger.error(f"Error processing rebalance {rebalance_id}: {str(e)}")
                 continue
