@@ -32,9 +32,9 @@ def summarize_strategy_with_gpt(recommendation: Dict[str, Any]) -> str:
 
     # Background knowledge for the AI
     background_knowledge = """
-    Background on our available lending protocols:
+    Background on our available lending protocols (no two are related to each other in any way):
     - **HyperLend**: A stable, well-established protocol known for reliable but generally conservative yields. It follows a standard kinked interest rate model.
-    - **HyperFi**: A sister protocol to HyperLend, often offering slightly more aggressive yields with a similar risk profile.
+    - **HyperFi**: An independent protocol offering competitive yields with its own risk profile and operational model.
     - **Felix**: A newer, highly dynamic protocol that uses a sophisticated, multi-market borrowing and lending model. Its APY can be volatile but often presents high-yield opportunities.
     """
 
@@ -48,12 +48,12 @@ def summarize_strategy_with_gpt(recommendation: Dict[str, Any]) -> str:
         except (ValueError, TypeError):
             apy_improvement_bps = 0
 
-    # Construct a very specific prompt template to get consistent results
-    prompt = f"""You are a DeFi yield optimization agent. Generate a concise summary of the rebalancing action.
+    # Single natural, conversational prompt
+    prompt = f"""You are a DeFi yield optimization agent. Generate a natural language summary of the rebalancing action. Employ an analytical thinking tone.
 
     {background_knowledge}
 
-    **Current Data:**
+    **Current Data (MUST be used accurately):**
     - Source Protocol: {from_protocol}
     - Source APY: {current_apy_from}%
     - Destination Protocol: {to_protocol}
@@ -61,22 +61,65 @@ def summarize_strategy_with_gpt(recommendation: Dict[str, Any]) -> str:
     - APY Improvement: {apy_improvement_bps} basis points
     - Amount Description: {amount_description}
 
-    Generate a summary that follows EXACTLY this template, replacing the placeholders with the appropriate values:
-    "The vault currently has assets allocated in [SOURCE_PROTOCOL], yielding [SOURCE_APY]%. However, [DESTINATION_PROTOCOL] is showing a higher APY of [DESTINATION_APY]%, giving us a [APY_IMPROVEMENT] bps improvement. Based on suggestion from Optimizer Agent moving [AMOUNT_DESCRIPTION] from [SOURCE_PROTOCOL] into [DESTINATION_PROTOCOL]. This ensures the vault is always positioned in the highest-yielding opportunity."
+    **Requirements:**
+    1. Use ALL the data above accurately - don't change any numbers or protocol names
+    2. Sound natural and analytical, like a human trader in serious rumination about their decision
+    3. Keep it concise (1-2 sentences)
+    4. Show some personality and confidence in the decision
+    5. Use natural transitions and varied sentence structures
+    6. Do NOT assume any relationships between protocols - they are completely independent entities
 
-    **Your Summary:**
-    """
+    **Your Summary:**"""
 
     try:
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model="o3",
             messages=[
-                {"role": "system", "content": "You are a Santient yield optimization agent. your name is Santient"}, 
+                {"role": "system", "content": "You are an experienced DeFi yield optimization agent. You're confident, analytical, and speak naturally about trading decisions. You always use exact data provided with sound logic and never guess numbers or protocol names."}, 
                 {"role": "user", "content": prompt}
-            ],
-            temperature=0.7,
-            max_tokens=150
+            ]
         )
         return response.choices[0].message.content.strip()
     except Exception as e:
         return f"Error calling OpenAI API: {e}"
+
+
+def validate_summary_accuracy(summary: str, recommendation: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Validate that the generated summary contains accurate data.
+    
+    Args:
+        summary: The generated summary text
+        recommendation: The original recommendation data
+        
+    Returns:
+        A dictionary with validation results
+    """
+    from_protocol = recommendation.get("from_protocol", "")
+    to_protocol = recommendation.get("to_protocol", "")
+    current_apy_from = recommendation.get("current_apy_from", "")
+    new_apy_to = recommendation.get("new_apy_to", "")
+    
+    validation = {
+        "is_valid": True,
+        "errors": [],
+        "warnings": []
+    }
+    
+    # Check if protocol names are present and correct
+    if from_protocol and from_protocol not in summary:
+        validation["errors"].append(f"Source protocol '{from_protocol}' not found in summary")
+        validation["is_valid"] = False
+    
+    if to_protocol and to_protocol not in summary:
+        validation["errors"].append(f"Destination protocol '{to_protocol}' not found in summary")
+        validation["is_valid"] = False
+    
+    # Check if APY values are present (allowing for some formatting variations)
+    if current_apy_from and str(current_apy_from) not in summary:
+        validation["warnings"].append(f"Source APY '{current_apy_from}%' not found in summary")
+    
+    if new_apy_to and str(new_apy_to) not in summary:
+        validation["warnings"].append(f"Destination APY '{new_apy_to}%' not found in summary")
+    
+    return validation
