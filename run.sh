@@ -126,12 +126,12 @@ echo -e "${GREEN}Yield monitor hourly job scheduler started in background${NC}"
 # # # Start a background process to run the Vault worker job every 5 minutes
 (
     while true; do
-        # Sleep for 10 minutes (600 seconds)
-        sleep 600
+        # Sleep for 30 minutes (1800 seconds)
+        sleep 1800
         run_vault_worker
     done
 ) &
-echo -e "${GREEN}Vault worker job scheduler (10-minute interval) started in background${NC}"
+echo -e "${GREEN}Vault worker job scheduler (30-minute interval) started in background${NC}"
 
 
 # Start Gunicorn in foreground (this keeps the container alive)
