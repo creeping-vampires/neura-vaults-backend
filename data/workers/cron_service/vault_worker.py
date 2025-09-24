@@ -1459,7 +1459,43 @@ class VaultWorker:
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
             return {}
+
+    def notify_telegram_bot(rebalance_payload: dict):
+        webhook_url = os.getenv(
+            "TELEGRAM_BASE_URL", 
+            "url"
+        )
+        webhook_url = f"{webhook_url}/webhook/rebalance"
+        api_key = os.getenv("WEBHOOK_API_KEY", "your-secret-key-here")
+
+        if not api_key:
+            print("ERROR: Webhook api key is not set. Cannot send notification.")
+            return
+
+        headers = {
+            "Content-Type": "application/json",
+            "X-API-Key": api_key
+        }
+
+        print(f"Sending notification for rebalance_id: {rebalance_payload.get('rebalance_id')}...")
     
+        try:
+            response = requests.post(
+                url=webhook_url, 
+                json=rebalance_payload, 
+                headers=headers, 
+                timeout=15
+            )
+        
+            response.raise_for_status()
+        
+            print("✅ Notification sent successfully. The bot will now process the event.")
+            print(f"Status Code: {response.status_code}")
+            print(f"Response: {response.json()}")
+
+        except requests.exceptions.RequestException as e:
+            print(f"❌ Failed to send notification to Telegram bot: {e}")
+
     def execute_vault_rebalance(self, from_pool_address, to_pool_address, amount, from_protocol, to_protocol, from_apy, to_apy):
         """
         Execute a rebalance operation between two pools.
@@ -1599,6 +1635,8 @@ class VaultWorker:
             logger.info(f"Withdrawal TX: {result['withdrawal_tx']}")
             logger.info(f"Deposit TX: {result['deposit_tx']}")
             
+            self.notify_telegram_bot(result)
+
             return result
         
         except Exception as e:
